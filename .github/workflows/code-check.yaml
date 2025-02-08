@@ -7,14 +7,12 @@ jobs:
     name: Build Project
     strategy:
       matrix:
-        os: [ubuntu-24.04, macos-latest]
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Project
         uses: actions/checkout@v4.2.2
-
       - name: Install Qt
-      uses: jurplel/install-qt-action@v4
-
+        uses: jurplel/install-qt-action@v4
       - name: Build Project
         uses: threeal/cmake-action@v2.1.0
