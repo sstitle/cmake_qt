@@ -9,6 +9,7 @@
 #include <QDebug>
 #include <QTabWidget>
 #include <QLabel>
+#include <QSizePolicy>
 #include <memory>
 
 class MyGLWidget : public QOpenGLWidget, protected QOpenGLFunctions {
@@ -134,8 +135,11 @@ private:
             return;
         }
 
+        // Convert the image to a format suitable for OpenGL
+        QImage glImage = image.convertToFormat(QImage::Format_RGBA8888);
+
         glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width(), image.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, image.bits());
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, glImage.width(), glImage.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, glImage.bits());
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
@@ -156,17 +160,22 @@ int main(int argc, char *argv[]) {
 
     // Assuming you have two images to display
     QLabel imageLabel1;
-    imageLabel1.setPixmap(QPixmap(":/hello1.tga"));
+    QPixmap pixmap1(":/hello1.tga");
+    imageLabel1.setPixmap(pixmap1.scaled(imageLabel1.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    imageLabel1.setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    imageLabel1.setAlignment(Qt::AlignCenter);
     tabWidget.addTab(&imageLabel1, "Image 1");
 
     QLabel imageLabel2;
-    imageLabel2.setPixmap(QPixmap(":/hello2.tga"));
+    QPixmap pixmap2(":/hello2.tga");
+    imageLabel2.setPixmap(pixmap2.scaled(imageLabel2.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    imageLabel2.setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    imageLabel2.setAlignment(Qt::AlignCenter);
     tabWidget.addTab(&imageLabel2, "Image 2");
 
     MyGLWidget glWidget;
+    glWidget.setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     tabWidget.addTab(&glWidget, "GLWidget");
-
-    tabWidget.resize(400, 300);
     tabWidget.show();
 
     return app.exec();
