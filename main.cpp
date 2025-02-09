@@ -2,17 +2,33 @@
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
+#include <QTimer>
+#include <QImage>
+#include <QPainter>
+#include <QFile>
+#include <QDebug>
 
 class MyGLWidget : public QOpenGLWidget, protected QOpenGLFunctions {
     QOpenGLShaderProgram *program;
     GLuint vbo;
+    GLuint textures[2];
+    float fadeFactor;
+    QTimer timer;
+
 public:
+    MyGLWidget() : fadeFactor(0.0f) {
+        connect(&timer, &QTimer::timeout, this, &MyGLWidget::updateFadeFactor);
+        timer.start(16); // roughly 60 FPS
+    }
+
     ~MyGLWidget() {
         makeCurrent();
         glDeleteBuffers(1, &vbo);
+        glDeleteTextures(2, textures);
         delete program;
         doneCurrent();
     }
+
 protected:
     void initializeGL() override {
         initializeOpenGLFunctions();
@@ -22,20 +38,25 @@ protected:
         const char *vertexShaderSource = R"(
             #version 120
             attribute vec2 position;
-            attribute vec3 vertexColor;
-            varying vec3 color;
+            varying vec2 texcoord;
             void main() {
                 gl_Position = vec4(position, 0.0, 1.0);
-                color = vertexColor;
+                texcoord = position * vec2(0.5) + vec2(0.5);
             }
         )";
 
         // Fragment shader
         const char *fragmentShaderSource = R"(
             #version 120
-            varying vec3 color;
+            uniform float fade_factor;
+            uniform sampler2D textures[2];
+            varying vec2 texcoord;
             void main() {
-                gl_FragColor = vec4(color, 1.0);
+                gl_FragColor = mix(
+                    texture2D(textures[0], texcoord),
+                    texture2D(textures[1], texcoord),
+                    fade_factor
+                );
             }
         )";
 
@@ -52,15 +73,20 @@ protected:
 
         // Vertex data
         GLfloat vertices[] = {
-            // Positions      // Colors
-            0.0f,  1.0f,     1.0f, 0.0f, 0.0f,  // First vertex, red
-           -1.0f, -1.0f,     0.0f, 1.0f, 0.0f,  // Second vertex, green
-            1.0f, -1.0f,     0.0f, 0.0f, 1.0f   // Third vertex, blue
+            // Positions
+            0.0f,  1.0f,  // First vertex
+           -1.0f, -1.0f,  // Second vertex
+            1.0f, -1.0f   // Third vertex
         };
 
         glGenBuffers(1, &vbo);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        // Create and load textures
+        glGenTextures(2, textures);
+        createAndLoadTexture(textures[0], ":/hello1.tga");
+        createAndLoadTexture(textures[1], ":/hello2.tga");
     }
 
     void resizeGL(int w, int h) override {
@@ -75,19 +101,41 @@ protected:
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         int posLocation = program->attributeLocation("position");
         program->enableAttributeArray(posLocation);
-        glVertexAttribPointer(posLocation, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), nullptr);
+        glVertexAttribPointer(posLocation, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), nullptr);
 
-        int colorLocation = program->attributeLocation("vertexColor");
-        program->enableAttributeArray(colorLocation);
-        glVertexAttribPointer(colorLocation, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), reinterpret_cast<void*>(2 * sizeof(GLfloat)));
+        program->setUniformValue("fade_factor", fadeFactor);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textures[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, textures[1]);
+        program->setUniformValue("textures[0]", 0);
+        program->setUniformValue("textures[1]", 1);
 
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         program->disableAttributeArray(posLocation);
-        program->disableAttributeArray(colorLocation);
         program->release();
     }
 
+private:
+    void createAndLoadTexture(GLuint texture, const QString& resourcePath) {
+        QImage image;
+        if (!image.load(resourcePath)) {
+            qWarning() << "Failed to load texture from" << resourcePath;
+            return;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width(), image.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, image.bits());
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+
+    void updateFadeFactor() {
+        fadeFactor += 0.01f;
+        if (fadeFactor > 1.0f) fadeFactor = 0.0f;
+        update();
+    }
 };
 
 int main(int argc, char *argv[]) {

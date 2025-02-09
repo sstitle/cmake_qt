@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/">
+        <file>hello1.tga</file>
+        <file>hello2.tga</file>
+    </qresource>
+</RCC>
