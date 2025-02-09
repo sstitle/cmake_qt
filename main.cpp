@@ -7,6 +7,8 @@
 #include <QPainter>
 #include <QFile>
 #include <QDebug>
+#include <QTabWidget>
+#include <QLabel>
 #include <memory>
 
 class MyGLWidget : public QOpenGLWidget, protected QOpenGLFunctions {
@@ -149,9 +151,23 @@ private:
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
+    QTabWidget tabWidget;
+    tabWidget.setWindowTitle("Image and GLWidget Viewer");
+
+    // Assuming you have two images to display
+    QLabel imageLabel1;
+    imageLabel1.setPixmap(QPixmap(":/hello1.tga"));
+    tabWidget.addTab(&imageLabel1, "Image 1");
+
+    QLabel imageLabel2;
+    imageLabel2.setPixmap(QPixmap(":/hello2.tga"));
+    tabWidget.addTab(&imageLabel2, "Image 2");
+
     MyGLWidget glWidget;
-    glWidget.resize(400, 300);
-    glWidget.show();
+    tabWidget.addTab(&glWidget, "GLWidget");
+
+    tabWidget.resize(400, 300);
+    tabWidget.show();
 
     return app.exec();
 }
