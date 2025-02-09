@@ -40,9 +40,15 @@ protected:
         )";
 
         program = new QOpenGLShaderProgram();
-        program->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource);
-        program->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource);
-        program->link();
+        if (!program->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource)) {
+            qWarning() << "Vertex shader compilation failed:" << program->log();
+        }
+        if (!program->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource)) {
+            qWarning() << "Fragment shader compilation failed:" << program->log();
+        }
+        if (!program->link()) {
+            qWarning() << "Shader program linking failed:" << program->log();
+        }
 
         // Vertex data
         GLfloat vertices[] = {
