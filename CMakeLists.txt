@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 project(MyApp VERSION 1.0 LANGUAGES CXX)
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+
+find_package(Qt6 REQUIRED COMPONENTS Widgets OpenGLWidgets)
 add_executable(MyApp main.cpp)
-target_link_libraries(MyApp Qt6::Widgets)
+target_link_libraries(MyApp Qt6::Widgets Qt6::OpenGLWidgets)
