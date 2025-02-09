@@ -18,4 +18,6 @@ jobs:
         run: |
           qmake --version
       - name: Build Project
+        env:
+          CMAKE_PREFIX_PATH: ${{env.Qt6_Dir}}
         uses: threeal/cmake-action@v2.1.0
