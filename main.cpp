@@ -7,9 +7,10 @@
 #include <QPainter>
 #include <QFile>
 #include <QDebug>
+#include <memory>
 
 class MyGLWidget : public QOpenGLWidget, protected QOpenGLFunctions {
-    QOpenGLShaderProgram *program;
+    std::unique_ptr<QOpenGLShaderProgram> program;
     GLuint vbo, ebo;
     GLuint textures[2];
     float fadeFactor;
@@ -26,7 +27,6 @@ public:
         glDeleteBuffers(1, &vbo);
         glDeleteBuffers(1, &ebo);
         glDeleteTextures(2, textures);
-        delete program;
         doneCurrent();
     }
 
@@ -42,7 +42,7 @@ protected:
             varying vec2 texcoord;
             void main() {
                 gl_Position = vec4(position, 0.0, 1.0);
-                texcoord = position * vec2(0.5) + vec2(0.5);
+                texcoord = position * vec2(0.5, -0.5) + vec2(0.5, 0.5);
             }
         )";
 
@@ -61,7 +61,7 @@ protected:
             }
         )";
 
-        program = new QOpenGLShaderProgram();
+        program = std::make_unique<QOpenGLShaderProgram>();
         if (!program->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource)) {
             qWarning() << "Vertex shader compilation failed:" << program->log();
         }
@@ -139,8 +139,9 @@ private:
     }
 
     void updateFadeFactor() {
-        fadeFactor += 0.01f;
-        if (fadeFactor > 1.0f) fadeFactor = 0.0f;
+        static float time = 0.0f;
+        fadeFactor = 0.5f * (1.0f + sin(time));
+        time += 0.01f;
         update();
     }
 };
