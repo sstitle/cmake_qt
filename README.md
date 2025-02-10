@@ -14,7 +14,7 @@ https://doc.qt.io/qt-6/get-and-install-qt.html
 
 Follow the instructions to install CMake, a cross-platform tool for building C++ programs.
 
-### Build and Run
+## Build and Run
 
 ```bash
 make build-cpp
