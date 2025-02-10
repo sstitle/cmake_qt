@@ -39,6 +39,10 @@ bool checkWin(const std::array<char, 9>& board) {
     return false;
 }
 
+bool checkTie(const std::array<char, 9>& board) {
+    return std::all_of(board.begin(), board.end(), [](char c) { return c != ' '; });
+}
+
 State reducer(const State& state, const Action& action) {
     State newState = state;
 
@@ -46,21 +50,25 @@ State reducer(const State& state, const Action& action) {
         case ActionType::PlaceMarker:
             if (newState.board[action.index] == ' ') {
                 newState.board[action.index] = newState.currentPlayer;
-                if (checkWin(newState.board)) {
-                    QMessageBox::information(nullptr, "Game Over", QString("%1 Wins!").arg(newState.currentPlayer));
-                    newState = reducer(newState, {ActionType::ResetGame, 0});
-                } else {
-                    newState.currentPlayer = (newState.currentPlayer == 'X') ? 'O' : 'X';
-                }
+                newState.currentPlayer = (newState.currentPlayer == 'X') ? 'O' : 'X';
             }
             break;
         case ActionType::ResetGame:
             newState.board.fill(' ');
-            newState.currentPlayer = 'X';
             break;
     }
 
     return newState;
+}
+
+void checkGameOver(State& state) {
+    if (checkWin(state.board)) {
+        QMessageBox::information(nullptr, "Game Over", QString("%1 Wins!").arg(state.currentPlayer == 'X' ? 'O' : 'X'));
+        state = reducer(state, {ActionType::ResetGame, 0});
+    } else if (checkTie(state.board)) {
+        QMessageBox::information(nullptr, "Game Over", "It's a Tie!");
+        state = reducer(state, {ActionType::ResetGame, 0});
+    }
 }
 
 class TicTacToeWidget : public QOpenGLWidget {
@@ -77,16 +85,31 @@ protected:
     void paintGL() override {
         QPainter painter(this);
         int squareSize = width() / 3;
+        QFont font("Arial", squareSize * 0.5, QFont::Bold);
+        painter.setFont(font);
 
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 QRect rect(j * squareSize, i * squareSize, squareSize, squareSize);
+                painter.setBrush(QColor(200, 200, 255)); // Light blue background
                 painter.drawRect(rect);
 
                 if (state.board[i * 3 + j] != ' ') {
+                    if (state.board[i * 3 + j] == 'X') {
+                        painter.setPen(QColor(255, 100, 100)); // Light red text for X
+                    } else {
+                        painter.setPen(QColor(100, 255, 100)); // Light green text for O
+                    }
                     painter.drawText(rect, Qt::AlignCenter, QString(state.board[i * 3 + j]));
                 }
             }
+        }
+
+        // Draw black lines between grid cells
+        painter.setPen(QColor(0, 0, 0)); // Black color for lines
+        for (int i = 1; i < 3; ++i) {
+            painter.drawLine(i * squareSize, 0, i * squareSize, height()); // Vertical lines
+            painter.drawLine(0, i * squareSize, width(), i * squareSize); // Horizontal lines
         }
     }
 
@@ -98,8 +121,9 @@ protected:
         if (row < 3 && col < 3) {
             int index = row * 3 + col;
             state = reducer(state, {ActionType::PlaceMarker, index});
-            updateWindowTitle();
             update();
+            checkGameOver(state);
+            updateWindowTitle();
         }
     }
 
