@@ -1,86 +1,56 @@
 #include <QApplication>
 #include <QOpenGLWidget>
-#include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
-#include <QMatrix4x4>
 #include <QTimer>
-#include <QVector3D>
-#include <QDebug>
+#include <QMainWindow>
+#include <QTime>
+#include <QObject>
+#include <QOpenGLFunctions>
 
-class CubeGLWidget : public QOpenGLWidget, protected QOpenGLFunctions {
-    std::unique_ptr<QOpenGLShaderProgram> program;
-    GLuint vbo, ebo;
-    QMatrix4x4 modelMatrix;
-    QTimer timer;
-    float angleX, angleY;
+class CubeGLWidget : public QOpenGLWidget, protected QOpenGLFunctions { // Inherit from QOpenGLFunctions
 
 public:
-    CubeGLWidget() : angleX(0.0f), angleY(0.0f) {
-        connect(&timer, &QTimer::timeout, this, &CubeGLWidget::updateRotation);
-        timer.start(16); // roughly 60 FPS
+    CubeGLWidget(QWidget *parent = nullptr) : QOpenGLWidget(parent), shaderProgram(nullptr) {
+        QTimer *timer = new QTimer(this);
+        QObject::connect(timer, &QTimer::timeout, this, QOverload<>::of(&CubeGLWidget::update)); // Use QOverload for connect
+        timer->start(16); // Approximately 60 FPS
     }
 
 protected:
     void initializeGL() override {
-        initializeOpenGLFunctions();
-        glEnable(GL_DEPTH_TEST);
+        initializeOpenGLFunctions(); // Initialize OpenGL functions
+        glClearColor(0.0, 0.0, 0.0, 1.0);
 
-        // Vertex shader
+        // Vertex Shader
         const char *vertexShaderSource = R"(
             #version 120
-            attribute vec3 position;
-            uniform mat4 model;
-            uniform mat4 view;
-            uniform mat4 projection;
+            attribute vec4 position;
             void main() {
-                gl_Position = projection * view * model * vec4(position, 1.0);
+                gl_Position = position;
             }
         )";
 
-        // Fragment shader
+        // Fragment Shader
         const char *fragmentShaderSource = R"(
             #version 120
+            uniform float iTime;
+            uniform vec2 iResolution;
             void main() {
-                gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // White color for wireframe
+                // Normalized pixel coordinates (from 0 to 1)
+                vec2 uv = gl_FragCoord.xy / iResolution.xy;
+
+                // Time varying pixel color
+                vec3 col = 0.5 + 0.5 * cos(iTime + uv.xyx + vec3(0, 2, 4));
+
+                // Output to screen
+                gl_FragColor = vec4(col, 1.0);
             }
         )";
 
-        program = std::make_unique<QOpenGLShaderProgram>();
-        if (!program->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource)) {
-            qFatal("Vertex shader compilation failed: %s", qPrintable(program->log()));
-        }
-        if (!program->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource)) {
-            qFatal("Fragment shader compilation failed: %s", qPrintable(program->log()));
-        }
-        if (!program->link()) {
-            qFatal("Shader program linking failed: %s", qPrintable(program->log()));
-        }
-
-        // Cube vertex data
-        static const GLfloat cubeVertices[] = {
-            -1.0f, -1.0f, -1.0f,
-             1.0f, -1.0f, -1.0f,
-             1.0f,  1.0f, -1.0f,
-            -1.0f,  1.0f, -1.0f,
-            -1.0f, -1.0f,  1.0f,
-             1.0f, -1.0f,  1.0f,
-             1.0f,  1.0f,  1.0f,
-            -1.0f,  1.0f,  1.0f
-        };
-
-        static const GLushort cubeIndices[] = {
-            0, 1, 1, 2, 2, 3, 3, 0, // Back face
-            4, 5, 5, 6, 6, 7, 7, 4, // Front face
-            0, 4, 1, 5, 2, 6, 3, 7  // Connecting edges
-        };
-
-        glGenBuffers(1, &vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
-
-        glGenBuffers(1, &ebo);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cubeIndices), cubeIndices, GL_STATIC_DRAW);
+        shaderProgram = new QOpenGLShaderProgram(this);
+        shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource);
+        shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource);
+        shaderProgram->link();
     }
 
     void resizeGL(int w, int h) override {
@@ -88,52 +58,53 @@ protected:
     }
 
     void paintGL() override {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-        program->bind();
+        shaderProgram->bind();
+        shaderProgram->setUniformValue("iTime", float(QTime::currentTime().msecsSinceStartOfDay()) / 1000.0f);
+        shaderProgram->setUniformValue("iResolution", QVector2D(width(), height()));
 
-        QMatrix4x4 viewMatrix;
-        viewMatrix.lookAt(QVector3D(0.0f, 0.0f, 5.0f), QVector3D(0.0f, 0.0f, 0.0f), QVector3D(0.0f, 1.0f, 0.0f));
+        GLfloat vertices[] = {
+            -1.0f, -1.0f,
+             1.0f, -1.0f,
+            -1.0f,  1.0f,
+             1.0f,  1.0f
+        };
 
-        QMatrix4x4 projectionMatrix;
-        projectionMatrix.perspective(45.0f, float(width()) / height(), 0.1f, 100.0f);
+        GLuint VBO;
+        glGenBuffers(1, &VBO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-        program->setUniformValue("model", modelMatrix);
-        program->setUniformValue("view", viewMatrix);
-        program->setUniformValue("projection", projectionMatrix);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        int posLocation = program->attributeLocation("position");
-        program->enableAttributeArray(posLocation);
-        glVertexAttribPointer(posLocation, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), nullptr);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // Set to wireframe mode
-        glDrawElements(GL_LINES, 24, GL_UNSIGNED_SHORT, nullptr);
+        glDisableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glDeleteBuffers(1, &VBO);
 
-        program->disableAttributeArray(posLocation);
-        program->release();
+        shaderProgram->release();
     }
 
 private:
-    void updateRotation() {
-        angleX += 1.0f;
-        angleY += 0.5f;
-        if (angleX >= 360.0f) angleX -= 360.0f;
-        if (angleY >= 360.0f) angleY -= 360.0f;
-        modelMatrix.setToIdentity();
-        modelMatrix.rotate(angleX, QVector3D(1.0f, 0.0f, 0.0f));
-        modelMatrix.rotate(angleY, QVector3D(0.0f, 1.0f, 0.0f));
-        update();
-    }
+    QOpenGLShaderProgram *shaderProgram;
 };
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
-    CubeGLWidget cubeWidget;
-    cubeWidget.resize(800, 600);
-    cubeWidget.show();
+    CubeGLWidget *widget = new CubeGLWidget;
+    widget->resize(400, 400);
+
+    QMainWindow mainWindow;
+    mainWindow.setCentralWidget(widget);
+    mainWindow.setFixedSize(widget->size());
+    mainWindow.show();
 
     return app.exec();
 }
+
+
+
