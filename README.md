@@ -2,6 +2,11 @@
 
 Here are some graphics examples using CMake and Qt.
 
+Based on code examples from:
+
+https://duriansoftware.com/joe/an-intro-to-modern-opengl
+https://github.com/jckarter/hello-gl
+
 ## Setup Dependencies
 
 ### Install Qt6
