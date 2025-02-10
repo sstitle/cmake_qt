@@ -52,3 +52,12 @@ https://github.com/jckarter/hello-gl
 ```bash
 make run-hello-gl
 ```
+
+
+### Cube GL
+
+Simple rotating cube example:
+
+```bash
+make run-cube-gl
+```

@@ -14,3 +14,6 @@ run-ascii-play: build-cpp
 # Define the target to run the tic_tac_toe application
 run-tic-tac-toe: build-cpp
 	./build/tic_tac_toe/tic_tac_toe
+
+run-cube-gl: build-cpp
+	./build/cube_gl/cube_gl
