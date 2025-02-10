@@ -22,15 +22,7 @@ class MyGLWidget : public QOpenGLWidget, protected QOpenGLFunctions {
 public:
     MyGLWidget() : fadeFactor(0.0f) {
         connect(&timer, &QTimer::timeout, this, &MyGLWidget::updateFadeFactor);
-        timer.start(8); // roughly 60 FPS
-    }
-
-    ~MyGLWidget() {
-        makeCurrent();
-        glDeleteBuffers(1, &vbo);
-        glDeleteBuffers(1, &ebo);
-        glDeleteTextures(2, textures);
-        doneCurrent();
+        timer.start(8);
     }
 
 protected:
