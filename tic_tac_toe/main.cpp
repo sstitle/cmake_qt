@@ -4,103 +4,110 @@
 #include <QMainWindow>
 #include <QMouseEvent>
 #include <QMessageBox>
-#include <array>
+#include <bitset>
 #include <variant>
 
-enum class ActionType {
-    PlaceMarker,
-    ResetGame
+enum class Player : char { None = ' ', X = 'X', O = 'O' };
+
+struct PlaceMarkerAction {
+    const unsigned int index;
 };
 
-struct Action {
-    ActionType type;
-    int index; // Used for PlaceMarker action
-};
+struct ResetGameAction {};
+
+using Action = std::variant<PlaceMarkerAction, ResetGameAction>;
 
 struct State {
-    std::array<char, 9> board;
-    char currentPlayer;
+    std::bitset<9> xBoard;
+    std::bitset<9> oBoard;
+    Player currentPlayer;
 };
 
-bool checkWin(const std::array<char, 9>& board) {
-    const int winPatterns[8][3] = {
-        {0, 1, 2}, {3, 4, 5}, {6, 7, 8}, // Rows
-        {0, 3, 6}, {1, 4, 7}, {2, 5, 8}, // Columns
-        {0, 4, 8}, {2, 4, 6}             // Diagonals
+bool checkWin(const std::bitset<9>& board) {
+    const std::array<int, 8> winPatterns = {
+        0b111000000, 0b000111000, 0b000000111, // Rows
+        0b100100100, 0b010010010, 0b001001001, // Columns
+        0b100010001, 0b001010100              // Diagonals
     };
-
-    for (const auto& pattern : winPatterns) {
-        if (board[pattern[0]] != ' ' &&
-            board[pattern[0]] == board[pattern[1]] &&
-            board[pattern[1]] == board[pattern[2]]) {
-            return true;
-        }
-    }
-    return false;
+    return std::any_of(winPatterns.begin(), winPatterns.end(), [&board](const int pattern) {
+        return (board.to_ulong() & pattern) == pattern;
+    });
 }
 
-bool checkTie(const std::array<char, 9>& board) {
-    return std::all_of(board.begin(), board.end(), [](char c) { return c != ' '; });
+bool checkTie(const State& state) {
+    return (state.xBoard | state.oBoard).count() == 9;
 }
 
 State reducer(const State& state, const Action& action) {
     State newState = state;
 
-    switch (action.type) {
-        case ActionType::PlaceMarker:
-            if (newState.board[action.index] == ' ') {
-                newState.board[action.index] = newState.currentPlayer;
-                newState.currentPlayer = (newState.currentPlayer == 'X') ? 'O' : 'X';
+    std::visit([&newState](auto&& act) {
+        using T = std::decay_t<decltype(act)>;
+        if constexpr (std::is_same_v<T, PlaceMarkerAction>) {
+            if (!newState.xBoard[act.index] && !newState.oBoard[act.index]) {
+                if (newState.currentPlayer == Player::X) {
+                    newState.xBoard.set(act.index);
+                    newState.currentPlayer = Player::O;
+                } else {
+                    newState.oBoard.set(act.index);
+                    newState.currentPlayer = Player::X;
+                }
             }
-            break;
-        case ActionType::ResetGame:
-            newState.board.fill(' ');
-            break;
-    }
+        } else if constexpr (std::is_same_v<T, ResetGameAction>) {
+            newState.xBoard.reset();
+            newState.oBoard.reset();
+            newState.currentPlayer = Player::X;
+        }
+    }, action);
 
     return newState;
 }
 
+void showGameOverMessage(const QString& message) {
+    QMessageBox::warning(nullptr, "Game Over", message);
+}
+
 void checkGameOver(State& state) {
-    if (checkWin(state.board)) {
-        QMessageBox::information(nullptr, "Game Over", QString("%1 Wins!").arg(state.currentPlayer == 'X' ? 'O' : 'X'));
-        state = reducer(state, {ActionType::ResetGame, 0});
-    } else if (checkTie(state.board)) {
-        QMessageBox::information(nullptr, "Game Over", "It's a Tie!");
-        state = reducer(state, {ActionType::ResetGame, 0});
+    if (checkWin(state.xBoard)) {
+        showGameOverMessage("X Wins!");
+        state = reducer(state, ResetGameAction{});
+    } else if (checkWin(state.oBoard)) {
+        showGameOverMessage("O Wins!");
+        state = reducer(state, ResetGameAction{});
+    } else if (checkTie(state)) {
+        showGameOverMessage("It's a Tie!");
+        state = reducer(state, ResetGameAction{});
     }
 }
 
 class TicTacToeWidget : public QOpenGLWidget {
 public:
     TicTacToeWidget(QWidget *parent = nullptr) : QOpenGLWidget(parent) {
-        state = {std::array<char, 9>{' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '}, 'X'};
+        state = {std::bitset<9>(), std::bitset<9>(), Player::X};
     }
 
 protected:
-    void initializeGL() override {
-        // Initialize OpenGL settings if needed
-    }
+    void initializeGL() override {}
 
     void paintGL() override {
         QPainter painter(this);
-        int squareSize = width() / 3;
-        QFont font("Arial", squareSize * 0.5, QFont::Bold);
+        const int squareSize = width() / 3;
+        const QFont font("Arial", squareSize * 0.5, QFont::Bold);
         painter.setFont(font);
 
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
-                QRect rect(j * squareSize, i * squareSize, squareSize, squareSize);
+                const QRect rect(j * squareSize, i * squareSize, squareSize, squareSize);
                 painter.setBrush(QColor(200, 200, 255)); // Light blue background
                 painter.drawRect(rect);
 
-                if (state.board[i * 3 + j] != ' ') {
-                    if (state.board[i * 3 + j] == 'X') {
-                        painter.setPen(QColor(255, 100, 100)); // Light red text for X
-                    } else {
-                        painter.setPen(QColor(100, 255, 100)); // Light green text for O
-                    }
-                    painter.drawText(rect, Qt::AlignCenter, QString(state.board[i * 3 + j]));
+                const unsigned int index = i * 3 + j;
+                if (state.xBoard[index]) {
+                    painter.setPen(QColor(255, 100, 100));
+                    painter.drawText(rect, Qt::AlignCenter, "X");
+                } else if (state.oBoard[index]) {
+                    painter.setPen(QColor(100, 255, 100));
+                    painter.drawText(rect, Qt::AlignCenter, "O");
                 }
             }
         }
@@ -114,13 +121,13 @@ protected:
     }
 
     void mousePressEvent(QMouseEvent *event) override {
-        int squareSize = width() / 3;
-        int row = event->position().y() / squareSize;
-        int col = event->position().x() / squareSize;
+        const int squareSize = width() / 3;
+        const int row = event->position().y() / squareSize;
+        const int col = event->position().x() / squareSize;
 
         if (row < 3 && col < 3) {
-            int index = row * 3 + col;
-            state = reducer(state, {ActionType::PlaceMarker, index});
+            const unsigned int index = row * 3 + col;
+            state = reducer(state, PlaceMarkerAction{index});
             update();
             checkGameOver(state);
             updateWindowTitle();
@@ -131,7 +138,7 @@ private:
     State state;
 
     void updateWindowTitle() {
-        QString title = QString("Tic Tac Toe - %1's Turn").arg(state.currentPlayer);
+        const QString title = QString("Tic Tac Toe - %1's Turn").arg(state.currentPlayer == Player::X ? 'X' : 'O');
         window()->setWindowTitle(title);
     }
 };
