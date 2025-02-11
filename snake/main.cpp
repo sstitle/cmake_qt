@@ -32,6 +32,36 @@ struct RequestNextFrameAction {};
 
 using Action = std::variant<UserDirectionAction, RequestNextFrameAction>;
 
+
+void placeReward(GameState &state) {
+  std::srand(std::time(nullptr));
+
+  // Create a set of all possible grid positions
+  std::set<std::pair<int, int>> gridPositions;
+  for (int i = 0; i < state.rows; ++i) {
+    for (int j = 0; j < state.cols; ++j) {
+      gridPositions.insert({i, j});
+    }
+  }
+
+  // Create a set of snake positions
+  std::set<std::pair<int, int>> snakePositions(state.snake.begin(),
+                                               state.snake.end());
+
+  // Calculate the set difference to find available positions
+  std::vector<std::pair<int, int>> availablePositions;
+  std::set_difference(gridPositions.begin(), gridPositions.end(),
+                      snakePositions.begin(), snakePositions.end(),
+                      std::back_inserter(availablePositions));
+
+  // Randomly select a position from the available positions
+  if (!availablePositions.empty()) {
+    int index = std::rand() % availablePositions.size();
+    state.reward = availablePositions[index];
+  }
+}
+
+
 class ActionVisitor {
 public:
   GameState operator()(const UserDirectionAction &action,
@@ -94,35 +124,6 @@ public:
     newState.moveMade = false; // Reset moveMade for the next time step
     return newState;
   }
-
-private:
-  void placeReward(GameState &state) const {
-    std::srand(std::time(nullptr));
-
-    // Create a set of all possible grid positions
-    std::set<std::pair<int, int>> gridPositions;
-    for (int i = 0; i < state.rows; ++i) {
-      for (int j = 0; j < state.cols; ++j) {
-        gridPositions.insert({i, j});
-      }
-    }
-
-    // Create a set of snake positions
-    std::set<std::pair<int, int>> snakePositions(state.snake.begin(),
-                                                 state.snake.end());
-
-    // Calculate the set difference to find available positions
-    std::vector<std::pair<int, int>> availablePositions;
-    std::set_difference(gridPositions.begin(), gridPositions.end(),
-                        snakePositions.begin(), snakePositions.end(),
-                        std::back_inserter(availablePositions));
-
-    // Randomly select a position from the available positions
-    if (!availablePositions.empty()) {
-      int index = std::rand() % availablePositions.size();
-      state.reward = availablePositions[index];
-    }
-  }
 };
 
 const int SQUARE_SIZE = 15; // Each square is 10x10 pixels
@@ -133,14 +134,23 @@ GameState reduce(const GameState &state, const Action &action) {
       action);
 }
 
+GameState initializeGameState(int rows, int cols) {
+  GameState state = {rows, cols, {}, {0, 0}, Direction::Right, false};
+  int centerRow = rows / 2;
+  int centerCol = cols / 2;
+  state.snake.push_back({centerRow, centerCol});
+  state.snake.push_back({centerRow, centerCol - 1});
+  state.snake.push_back({centerRow, centerCol - 2});
+  placeReward(state); // Initial reward placement
+  return state;
+}
+
 class SnakeWidget : public QOpenGLWidget {
 public:
-  SnakeWidget(int rows, int cols, QWidget *parent = nullptr)
-      : QOpenGLWidget(parent),
-        state_({rows, cols, {}, {0, 0}, Direction::Right, false}) {
+  SnakeWidget(const GameState &initialState, QWidget *parent = nullptr)
+      : QOpenGLWidget(parent), state_(initialState) {
     setFocusPolicy(Qt::StrongFocus); // Ensure the widget can catch input
-    initializeSnake_();
-    placeReward_();
+    startTimer(100); // Start a timer to move the snake every 100ms
   }
 
 protected:
@@ -237,25 +247,6 @@ protected:
 
 private:
   GameState state_;
-
-  void initializeSnake_() {
-    int centerRow = state_.rows / 2;
-    int centerCol = state_.cols / 2;
-    state_.snake.push_back({centerRow, centerCol});
-    state_.snake.push_back({centerRow, centerCol - 1});
-    state_.snake.push_back({centerRow, centerCol - 2});
-    startTimer(100); // Start a timer to move the snake every 100ms
-  }
-
-  void placeReward_() {
-    std::srand(std::time(nullptr));
-    do {
-      int rewardRow = std::rand() % state_.rows;
-      int rewardCol = std::rand() % state_.cols;
-      state_.reward = {rewardRow, rewardCol};
-    } while (std::find(state_.snake.begin(), state_.snake.end(),
-                       state_.reward) != state_.snake.end());
-  }
 };
 
 int main(int argc, char *argv[]) {
@@ -264,7 +255,9 @@ int main(int argc, char *argv[]) {
   constexpr int rows = 25; // Example number of rows
   constexpr int cols = 25; // Example number of columns
 
-  SnakeWidget *widget = new SnakeWidget(rows, cols);
+  GameState initialState = initializeGameState(rows, cols);
+
+  SnakeWidget *widget = new SnakeWidget(initialState);
   widget->resize(cols * SQUARE_SIZE,
                  rows * SQUARE_SIZE); // Set the widget size based on grid size
 
