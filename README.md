@@ -2,6 +2,8 @@
 
 Here are some graphics examples using CMake and Qt.
 
+![Snake Game](./snake.gif)
+
 ## Setup Dependencies
 
 ### Install Qt6
@@ -32,8 +34,6 @@ Example C++ implementation of Sanke using the state and reducer pattern.
 ```bash
 make run-snake
 ```
-![Snake Game](./snake.gif)
-
 
 ### Tic Tac Toe
 
