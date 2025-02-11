@@ -13,6 +13,8 @@
 #include <variant>
 #include <vector>
 
+const int SQUARE_SIZE_PIXELS = 15;
+
 enum class Direction { Up, Down, Left, Right };
 
 struct GameState {
@@ -32,7 +34,6 @@ struct RequestNextFrameAction {};
 
 using Action = std::variant<UserDirectionAction, RequestNextFrameAction>;
 
-
 void placeReward(GameState &state) {
   std::srand(std::time(nullptr));
 
@@ -45,8 +46,8 @@ void placeReward(GameState &state) {
   }
 
   // Create a set of snake positions
-  std::set<std::pair<int, int>> snakePositions(state.snake.begin(),
-                                               state.snake.end());
+  const std::set<std::pair<int, int>> snakePositions(state.snake.begin(),
+                                                     state.snake.end());
 
   // Calculate the set difference to find available positions
   std::vector<std::pair<int, int>> availablePositions;
@@ -56,11 +57,10 @@ void placeReward(GameState &state) {
 
   // Randomly select a position from the available positions
   if (!availablePositions.empty()) {
-    int index = std::rand() % availablePositions.size();
+    const int index = std::rand() % availablePositions.size();
     state.reward = availablePositions[index];
   }
 }
-
 
 class ActionVisitor {
 public:
@@ -105,7 +105,7 @@ public:
     // Check for self-intersection
     if (std::find(newState.snake.begin(), newState.snake.end(), head) !=
         newState.snake.end()) {
-      int score = newState.snake.size();
+      const int score = newState.snake.size();
       QMessageBox::information(nullptr, "Game Over",
                                QString("Game Over! Your score: %1").arg(score));
       QApplication::quit();
@@ -126,8 +126,6 @@ public:
   }
 };
 
-const int SQUARE_SIZE = 15; // Each square is 10x10 pixels
-
 GameState reduce(const GameState &state, const Action &action) {
   return std::visit(
       [&state](auto &&arg) -> GameState { return ActionVisitor{}(arg, state); },
@@ -136,8 +134,8 @@ GameState reduce(const GameState &state, const Action &action) {
 
 GameState initializeGameState(int rows, int cols) {
   GameState state = {rows, cols, {}, {0, 0}, Direction::Right, false};
-  int centerRow = rows / 2;
-  int centerCol = cols / 2;
+  const int centerRow = rows / 2;
+  const int centerCol = cols / 2;
   state.snake.push_back({centerRow, centerCol});
   state.snake.push_back({centerRow, centerCol - 1});
   state.snake.push_back({centerRow, centerCol - 2});
@@ -162,8 +160,8 @@ protected:
     // Draw the grid
     for (int i = 0; i < state_.rows; ++i) {
       for (int j = 0; j < state_.cols; ++j) {
-        const QRect rect(j * SQUARE_SIZE, i * SQUARE_SIZE, SQUARE_SIZE,
-                         SQUARE_SIZE);
+        const QRect rect(j * SQUARE_SIZE_PIXELS, i * SQUARE_SIZE_PIXELS,
+                         SQUARE_SIZE_PIXELS, SQUARE_SIZE_PIXELS);
         painter.setBrush(QColor(200, 200, 255)); // Light blue background
         painter.drawRect(rect);
       }
@@ -172,8 +170,9 @@ protected:
     // Draw the snake
     for (size_t i = 0; i < state_.snake.size(); ++i) {
       const auto &segment = state_.snake[i];
-      const QRect rect(segment.second * SQUARE_SIZE,
-                       segment.first * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
+      const QRect rect(segment.second * SQUARE_SIZE_PIXELS,
+                       segment.first * SQUARE_SIZE_PIXELS, SQUARE_SIZE_PIXELS,
+                       SQUARE_SIZE_PIXELS);
       if (i == 0) {
         // Draw the head with a different color and direction indicator
         painter.setBrush(QColor(255, 255, 0)); // Yellow color for the head
@@ -210,9 +209,9 @@ protected:
 
     // Draw the reward
     painter.setBrush(QColor(255, 0, 0)); // Red color for the reward
-    const QRect rewardRect(state_.reward.second * SQUARE_SIZE,
-                           state_.reward.first * SQUARE_SIZE, SQUARE_SIZE,
-                           SQUARE_SIZE);
+    const QRect rewardRect(state_.reward.second * SQUARE_SIZE_PIXELS,
+                           state_.reward.first * SQUARE_SIZE_PIXELS,
+                           SQUARE_SIZE_PIXELS, SQUARE_SIZE_PIXELS);
     painter.drawRect(rewardRect);
   }
 
@@ -255,11 +254,11 @@ int main(int argc, char *argv[]) {
   constexpr int rows = 25; // Example number of rows
   constexpr int cols = 25; // Example number of columns
 
-  GameState initialState = initializeGameState(rows, cols);
+  const GameState initialState = initializeGameState(rows, cols);
 
-  SnakeWidget *widget = new SnakeWidget(initialState);
-  widget->resize(cols * SQUARE_SIZE,
-                 rows * SQUARE_SIZE); // Set the widget size based on grid size
+  auto *widget = new SnakeWidget(initialState);
+  widget->resize(cols * SQUARE_SIZE_PIXELS,
+                 rows * SQUARE_SIZE_PIXELS); // Set the widget size based on grid size
 
   QMainWindow mainWindow;
   mainWindow.setCentralWidget(widget);
