@@ -32,8 +32,7 @@ Example C++ implementation of Sanke using the state and reducer pattern.
 ```bash
 make run-snake
 ```
-
-[Watch a demo of the Snake game](./Snake.mov)
+![Snake Game](./snake.gif)
 
 
 ### Tic Tac Toe
