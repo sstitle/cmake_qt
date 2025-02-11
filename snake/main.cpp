@@ -32,10 +32,10 @@ const int SQUARE_SIZE = 15; // Each square is 10x10 pixels
 class SnakeWidget : public QOpenGLWidget {
 public:
     SnakeWidget(int rows, int cols, QWidget *parent = nullptr) 
-        : QOpenGLWidget(parent), state({rows, cols, {}, {0, 0}, Direction::Right, false}) {
+        : QOpenGLWidget(parent), state_({rows, cols, {}, {0, 0}, Direction::Right, false}) {
         setFocusPolicy(Qt::StrongFocus); // Ensure the widget can catch input
-        initializeSnake();
-        placeReward();
+        initializeSnake_();
+        placeReward_();
     }
 
 protected:
@@ -45,8 +45,8 @@ protected:
         QPainter painter(this);
 
         // Draw the grid
-        for (int i = 0; i < state.rows; ++i) {
-            for (int j = 0; j < state.cols; ++j) {
+        for (int i = 0; i < state_.rows; ++i) {
+            for (int j = 0; j < state_.cols; ++j) {
                 const QRect rect(j * SQUARE_SIZE, i * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
                 painter.setBrush(QColor(200, 200, 255)); // Light blue background
                 painter.drawRect(rect);
@@ -54,8 +54,8 @@ protected:
         }
 
         // Draw the snake
-        for (size_t i = 0; i < state.snake.size(); ++i) {
-            const auto& segment = state.snake[i];
+        for (size_t i = 0; i < state_.snake.size(); ++i) {
+            const auto& segment = state_.snake[i];
             const QRect rect(segment.second * SQUARE_SIZE, segment.first * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
             if (i == 0) {
                 // Draw the head with a different color and direction indicator
@@ -65,7 +65,7 @@ protected:
                 // Draw half of the head in the direction of movement
                 QRect halfRect;
                 painter.setBrush(QColor(0, 0, 0)); // Black color for the direction indicator
-                switch (state.currentDirection) {
+                switch (state_.currentDirection) {
                     case Direction::Up:
                         halfRect = QRect(rect.left(), rect.top(), rect.width(), rect.height() / 2);
                         break;
@@ -88,12 +88,12 @@ protected:
 
         // Draw the reward
         painter.setBrush(QColor(255, 0, 0)); // Red color for the reward
-        const QRect rewardRect(state.reward.second * SQUARE_SIZE, state.reward.first * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
+        const QRect rewardRect(state_.reward.second * SQUARE_SIZE, state_.reward.first * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
         painter.drawRect(rewardRect);
     }
 
     void keyPressEvent(QKeyEvent *event) override {
-        if (state.moveMade) return; // Only allow one move per time step
+        if (state_.moveMade) return; // Only allow one move per time step
         Action action;
         switch (event->key()) {
             case Qt::Key_Up:
@@ -111,87 +111,87 @@ protected:
             default:
                 return;
         }
-        processAction(action);
+        processAction_(action);
     }
 
     void timerEvent(QTimerEvent *event) override {
         RequestNextStep request;
-        processRequest(request);
+        processRequest_(request);
         update();
     }
 
 private:
-    GameState state;
+    GameState state_;
 
-    void initializeSnake() {
-        int centerRow = state.rows / 2;
-        int centerCol = state.cols / 2;
-        state.snake.push_back({centerRow, centerCol});
-        state.snake.push_back({centerRow, centerCol - 1});
-        state.snake.push_back({centerRow, centerCol - 2});
+    void initializeSnake_() {
+        int centerRow = state_.rows / 2;
+        int centerCol = state_.cols / 2;
+        state_.snake.push_back({centerRow, centerCol});
+        state_.snake.push_back({centerRow, centerCol - 1});
+        state_.snake.push_back({centerRow, centerCol - 2});
         startTimer(100); // Start a timer to move the snake every 100ms
     }
 
-    void placeReward() {
+    void placeReward_() {
         std::srand(std::time(nullptr));
         do {
-            int rewardRow = std::rand() % state.rows;
-            int rewardCol = std::rand() % state.cols;
-            state.reward = {rewardRow, rewardCol};
-        } while (std::find(state.snake.begin(), state.snake.end(), state.reward) != state.snake.end());
+            int rewardRow = std::rand() % state_.rows;
+            int rewardCol = std::rand() % state_.cols;
+            state_.reward = {rewardRow, rewardCol};
+        } while (std::find(state_.snake.begin(), state_.snake.end(), state_.reward) != state_.snake.end());
     }
 
-    void processAction(const Action& action) {
-        if (state.moveMade) return;
-        if ((action.direction == Direction::Up && state.currentDirection != Direction::Down) ||
-            (action.direction == Direction::Down && state.currentDirection != Direction::Up) ||
-            (action.direction == Direction::Left && state.currentDirection != Direction::Right) ||
-            (action.direction == Direction::Right && state.currentDirection != Direction::Left)) {
-            state.currentDirection = action.direction;
-            state.moveMade = true;
+    void processAction_(const Action& action) {
+        if (state_.moveMade) return;
+        if ((action.direction == Direction::Up && state_.currentDirection != Direction::Down) ||
+            (action.direction == Direction::Down && state_.currentDirection != Direction::Up) ||
+            (action.direction == Direction::Left && state_.currentDirection != Direction::Right) ||
+            (action.direction == Direction::Right && state_.currentDirection != Direction::Left)) {
+            state_.currentDirection = action.direction;
+            state_.moveMade = true;
         }
     }
 
-    void processRequest(const RequestNextStep&) {
-        moveSnake();
-        state.moveMade = false; // Reset moveMade for the next time step
+    void processRequest_(const RequestNextStep&) {
+        moveSnake_();
+        state_.moveMade = false; // Reset moveMade for the next time step
     }
 
-    void moveSnake() {
-        auto head = state.snake.front();
-        switch (state.currentDirection) {
+    void moveSnake_() {
+        auto head = state_.snake.front();
+        switch (state_.currentDirection) {
             case Direction::Up:
-                head.first = (head.first - 1 + state.rows) % state.rows;
+                head.first = (head.first - 1 + state_.rows) % state_.rows;
                 break;
             case Direction::Down:
-                head.first = (head.first + 1) % state.rows;
+                head.first = (head.first + 1) % state_.rows;
                 break;
             case Direction::Left:
-                head.second = (head.second - 1 + state.cols) % state.cols;
+                head.second = (head.second - 1 + state_.cols) % state_.cols;
                 break;
             case Direction::Right:
-                head.second = (head.second + 1) % state.cols;
+                head.second = (head.second + 1) % state_.cols;
                 break;
         }
 
         // Check for self-intersection
-        if (std::find(state.snake.begin(), state.snake.end(), head) != state.snake.end()) {
-            endGame();
+        if (std::find(state_.snake.begin(), state_.snake.end(), head) != state_.snake.end()) {
+            endGame_();
             return;
         }
 
-        state.snake.insert(state.snake.begin(), head);
+        state_.snake.insert(state_.snake.begin(), head);
 
         // Check if the snake has eaten the reward
-        if (head == state.reward) {
-            placeReward(); // Place a new reward
+        if (head == state_.reward) {
+            placeReward_(); // Place a new reward
         } else {
-            state.snake.pop_back(); // Remove the tail if no reward is eaten
+            state_.snake.pop_back(); // Remove the tail if no reward is eaten
         }
     }
 
-    void endGame() {
-        int score = state.snake.size();
+    void endGame_() {
+        int score = state_.snake.size();
         QMessageBox::information(this, "Game Over", QString("Game Over! Your score: %1").arg(score));
         QApplication::quit();
     }
