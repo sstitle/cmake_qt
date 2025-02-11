@@ -24,6 +24,18 @@ make build-cpp
 
 There are a few executables you can run:
 
+
+### Snake
+
+Example C++ implementation of Sanke using the state and reducer pattern.
+
+```bash
+make run-snake
+```
+
+[Watch a demo of the Snake game](./Snake.mov)
+
+
 ### Tic Tac Toe
 
 Example C++ implementation of Tic-Tac-Toe using the state and reducer pattern. Inspired by the React tutorial here:
