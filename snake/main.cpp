@@ -61,21 +61,25 @@ protected:
                 // Draw the head with a different color and direction indicator
                 painter.setBrush(QColor(255, 255, 0)); // Yellow color for the head
                 painter.drawRect(rect);
+
+                // Draw half of the head in the direction of movement
+                QRect halfRect;
                 painter.setBrush(QColor(0, 0, 0)); // Black color for the direction indicator
                 switch (state.currentDirection) {
                     case Direction::Up:
-                        painter.drawLine(rect.center(), QPoint(rect.center().x(), rect.top()));
+                        halfRect = QRect(rect.left(), rect.top(), rect.width(), rect.height() / 2);
                         break;
                     case Direction::Down:
-                        painter.drawLine(rect.center(), QPoint(rect.center().x(), rect.bottom()));
+                        halfRect = QRect(rect.left(), rect.center().y(), rect.width(), rect.height() / 2);
                         break;
                     case Direction::Left:
-                        painter.drawLine(rect.center(), QPoint(rect.left(), rect.center().y()));
+                        halfRect = QRect(rect.left(), rect.top(), rect.width() / 2, rect.height());
                         break;
                     case Direction::Right:
-                        painter.drawLine(rect.center(), QPoint(rect.right(), rect.center().y()));
+                        halfRect = QRect(rect.center().x(), rect.top(), rect.width() / 2, rect.height());
                         break;
                 }
+                painter.drawRect(halfRect);
             } else {
                 painter.setBrush(QColor(0, 255, 0)); // Green color for the snake body
                 painter.drawRect(rect);
