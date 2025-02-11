@@ -1,9 +1,9 @@
-#include <QPainter>
+#include <QApplication>
 #include <QKeyEvent>
 #include <QMessageBox>
-#include <QApplication>
+#include <QPainter>
 
-
+#include "SnakeState.hpp"
 #include "SnakeWidget.hpp"
 
 SnakeWidget::SnakeWidget(const GameState &initialState, QWidget *parent)
