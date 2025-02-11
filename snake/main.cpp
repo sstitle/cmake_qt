@@ -21,13 +21,70 @@ struct GameState {
     bool moveMade; // Track if a move has been made in the current time step
 };
 
-struct Action {
+struct UserDirectionAction {
     Direction direction;
 };
 
-struct RequestNextStep {};
+struct RequestNextFrameAction {};
 
 const int SQUARE_SIZE = 15; // Each square is 10x10 pixels
+
+GameState reduce(const GameState& state, const UserDirectionAction& action) {
+    GameState newState = state;
+    if (newState.moveMade) return newState;
+    if ((action.direction == Direction::Up && newState.currentDirection != Direction::Down) ||
+        (action.direction == Direction::Down && newState.currentDirection != Direction::Up) ||
+        (action.direction == Direction::Left && newState.currentDirection != Direction::Right) ||
+        (action.direction == Direction::Right && newState.currentDirection != Direction::Left)) {
+        newState.currentDirection = action.direction;
+        newState.moveMade = true;
+    }
+    return newState;
+}
+
+GameState reduce(const GameState& state, const RequestNextFrameAction&) {
+    GameState newState = state;
+    auto head = newState.snake.front();
+    switch (newState.currentDirection) {
+        case Direction::Up:
+            head.first = (head.first - 1 + newState.rows) % newState.rows;
+            break;
+        case Direction::Down:
+            head.first = (head.first + 1) % newState.rows;
+            break;
+        case Direction::Left:
+            head.second = (head.second - 1 + newState.cols) % newState.cols;
+            break;
+        case Direction::Right:
+            head.second = (head.second + 1) % newState.cols;
+            break;
+    }
+
+    // Check for self-intersection
+    if (std::find(newState.snake.begin(), newState.snake.end(), head) != newState.snake.end()) {
+        int score = newState.snake.size();
+        QMessageBox::information(nullptr, "Game Over", QString("Game Over! Your score: %1").arg(score));
+        QApplication::quit();
+        return newState;
+    }
+
+    newState.snake.insert(newState.snake.begin(), head);
+
+    // Check if the snake has eaten the reward
+    if (head == newState.reward) {
+        std::srand(std::time(nullptr));
+        do {
+            int rewardRow = std::rand() % newState.rows;
+            int rewardCol = std::rand() % newState.cols;
+            newState.reward = {rewardRow, rewardCol};
+        } while (std::find(newState.snake.begin(), newState.snake.end(), newState.reward) != newState.snake.end());
+    } else {
+        newState.snake.pop_back(); // Remove the tail if no reward is eaten
+    }
+
+    newState.moveMade = false; // Reset moveMade for the next time step
+    return newState;
+}
 
 class SnakeWidget : public QOpenGLWidget {
 public:
@@ -94,7 +151,7 @@ protected:
 
     void keyPressEvent(QKeyEvent *event) override {
         if (state_.moveMade) return; // Only allow one move per time step
-        Action action;
+        UserDirectionAction action;
         switch (event->key()) {
             case Qt::Key_Up:
                 action.direction = Direction::Up;
@@ -111,12 +168,12 @@ protected:
             default:
                 return;
         }
-        processAction_(action);
+        state_ = reduce(state_, action);
     }
 
     void timerEvent(QTimerEvent *event) override {
-        RequestNextStep request;
-        processRequest_(request);
+        RequestNextFrameAction request;
+        state_ = reduce(state_, request);
         update();
     }
 
@@ -139,61 +196,6 @@ private:
             int rewardCol = std::rand() % state_.cols;
             state_.reward = {rewardRow, rewardCol};
         } while (std::find(state_.snake.begin(), state_.snake.end(), state_.reward) != state_.snake.end());
-    }
-
-    void processAction_(const Action& action) {
-        if (state_.moveMade) return;
-        if ((action.direction == Direction::Up && state_.currentDirection != Direction::Down) ||
-            (action.direction == Direction::Down && state_.currentDirection != Direction::Up) ||
-            (action.direction == Direction::Left && state_.currentDirection != Direction::Right) ||
-            (action.direction == Direction::Right && state_.currentDirection != Direction::Left)) {
-            state_.currentDirection = action.direction;
-            state_.moveMade = true;
-        }
-    }
-
-    void processRequest_(const RequestNextStep&) {
-        moveSnake_();
-        state_.moveMade = false; // Reset moveMade for the next time step
-    }
-
-    void moveSnake_() {
-        auto head = state_.snake.front();
-        switch (state_.currentDirection) {
-            case Direction::Up:
-                head.first = (head.first - 1 + state_.rows) % state_.rows;
-                break;
-            case Direction::Down:
-                head.first = (head.first + 1) % state_.rows;
-                break;
-            case Direction::Left:
-                head.second = (head.second - 1 + state_.cols) % state_.cols;
-                break;
-            case Direction::Right:
-                head.second = (head.second + 1) % state_.cols;
-                break;
-        }
-
-        // Check for self-intersection
-        if (std::find(state_.snake.begin(), state_.snake.end(), head) != state_.snake.end()) {
-            endGame_();
-            return;
-        }
-
-        state_.snake.insert(state_.snake.begin(), head);
-
-        // Check if the snake has eaten the reward
-        if (head == state_.reward) {
-            placeReward_(); // Place a new reward
-        } else {
-            state_.snake.pop_back(); // Remove the tail if no reward is eaten
-        }
-    }
-
-    void endGame_() {
-        int score = state_.snake.size();
-        QMessageBox::information(this, "Game Over", QString("Game Over! Your score: %1").arg(score));
-        QApplication::quit();
     }
 };
 
